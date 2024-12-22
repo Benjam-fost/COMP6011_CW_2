@@ -1,18 +1,24 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
 
-# IRIS dataset
-#iris = load_iris()
+# Config
 features = [
     "bill_length_mm",
     "bill_depth_mm",
     "flipper_length_mm",
     "body_mass_g"
     ]
+# Used for reproducibility
+seed = np.random.randint(0, 999)
+# Declare learning rate and epochs outside the class
+learning_rate = 0.001
+epochs = 2000
+
+# Get the dataset
 penguins = sns.load_dataset("penguins")
+# Sanitise the data, removing all incomplete entries
 penguins.dropna(inplace=True)
 
 # Features
@@ -27,10 +33,6 @@ y = penguins["species"].map(species_map).values
 # One-hot encoding
 y_one_hot = np.eye(3)[y]
 
-#X = penguins.data  # Features
-#y = penguins.target  # Labels (0, 1, 2)
-print(f"Iris.data:\n{X}\nIris.target:\n{y}")
-
 # Features normalisation
 X = (X - np.mean(X, axis=0)) / np.std(X, axis=0)
 
@@ -38,7 +40,7 @@ X = (X - np.mean(X, axis=0)) / np.std(X, axis=0)
 X_train, X_test, y_train, y_test = train_test_split(
     X, y_one_hot,
     test_size=0.2,
-    random_state=42)
+    random_state=seed)
 
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
@@ -104,10 +106,6 @@ class MulticlassPerceptron:
         output = self.forward(X)
         return np.argmax(output, axis=1)  # Return class with the highest probability
 
-# Declare learning rate and epochs outside the class
-learning_rate = 0.001
-epochs = 2000
-
 # Initialisation of multiclass perceptron
 input_size = X_train.shape[1]  # 4 features per sample
 output_size = y_train.shape[1]  # 3 classes
@@ -127,7 +125,7 @@ y_test_pred = model.predict(X_test)
 # Calculate accuracy
 accuracy = calculate_accuracy(y_test, y_test_pred)
 print(f"Model Test Accuracy: {accuracy * 100:.2f}%")
-
+print(f"Seed: {seed}")
 # Plot training and test error curves
 plt.plot(model.train_errors, label='Training Error')
 plt.plot(model.test_errors, label='Test Error')
