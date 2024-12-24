@@ -13,9 +13,14 @@ features = [
 # Used for reproducibility
 seed = np.random.randint(0, 999)
 # Optimal learning rate
-learning_rate = 0.1030
+learning_rate = 0.001
 # Optimal number of epochs
-epochs = 2000
+epochs = 5000
+# Number of neurons in the hidden layer
+hidden_size = 4
+# Number of folds for cross-validation
+kfolds = 5
+
 # Get the dataset
 penguins = sns.load_dataset("penguins")
 # Sanitise the data, removing all incomplete entries
@@ -36,9 +41,7 @@ y_one_hot = np.eye(3)[y]
 # Split data into optimal training (80%) and test (20%) sets
 X_train, X_test, y_train, y_test = train_test_split(X, y_one_hot, test_size=0.2, random_state=seed)
 input_size = X_train.shape[1]
-hidden_size = 4  # Number of neurons in the hidden layer
 output_size = y_train.shape[1]
-kfolds = 5  # Number of folds for cross-validation
 
 # Define the sigmoid activation function and its derivative
 def sigmoid(x):
@@ -88,13 +91,13 @@ class MLP:
         self.weights1 -= np.dot(X.T, hidden_delta) * self.learning_rate
         self.bias1 -= np.sum(hidden_delta, axis=0, keepdims=True) * self.learning_rate
 
-    def train_with_cross_validation(self, X, y, kfolds, epochs):
-        kf = KFold(n_splits=kfolds, shuffle=True, random_state=42)
+    def train_with_cross_validation(self, X, y, kfolds, epochs, log = False):
+        kf = KFold(n_splits=kfolds, shuffle=True, random_state=seed)
         self.train_errors = np.zeros(epochs)
         self.val_errors = np.zeros(epochs)
 
         for fold, (train_idx, val_idx) in enumerate(kf.split(X)):
-            print(f"Training Fold {fold + 1}/{kfolds}")
+            if log: print(f"Training Fold {fold + 1}/{kfolds}")
             X_train, X_val = X[train_idx], X[val_idx]
             y_train, y_val = y[train_idx], y[val_idx]
 
@@ -112,7 +115,7 @@ class MLP:
                 val_loss = categorical_cross_entropy(y_val, y_val_pred)
                 self.val_errors[epoch] += val_loss / kfolds
 
-            print(f"Fold {fold + 1} completed.")
+            if log: print(f"Fold {fold + 1} completed.")
 
     def predict(self, X):
         output = self.forward(X)
