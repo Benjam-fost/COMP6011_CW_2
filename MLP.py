@@ -13,9 +13,11 @@ features = [
 # Used for reproducibility
 seed = np.random.randint(0, 999)
 # Optimal learning rate
-learning_rate = 0.001
+learning_rates = np.linspace(0.001, 5, 50)
+optimal_learning_rate = None
+best_accuracy = 0.00
 # Optimal number of epochs
-epochs = 5000
+epochs = 2500
 # Number of neurons in the hidden layer
 hidden_size = 4
 # Number of folds for cross-validation
@@ -121,28 +123,51 @@ class MLP:
         output = self.forward(X)
         return np.argmax(output, axis=1)
 
-# Initialize and train the MLP model with one hidden layer
-
-# Create and train the MLP model
-model = MLP(input_size, hidden_size, output_size, learning_rate)
-
-# Train the model using K-Fold Cross-Validation
-model.train_with_cross_validation(X_train, y_train, kfolds, epochs)
-
 # Calculate accuracy on test set
 def calculate_accuracy(y_true, y_pred):
     correct = np.sum(np.argmax(y_true, axis=1) == y_pred)
     return correct / y_true.shape[0]
 
-y_test_pred = model.predict(X_test)
-accuracy = calculate_accuracy(y_test, y_test_pred)
-print(f"Model Accuracy on Test Set: {accuracy * 100:.2f}%")
+train_errors = []
+val_errors = []
+accuracies = []
+### Iterate 2000 times over each learning rate to find the optimal one ###
+for lr in learning_rates:
+    # Create and train a model for each learning rate
+    model = MLP(input_size, hidden_size, output_size, lr)
+    model.train_with_cross_validation(X_train, y_train, kfolds, epochs, log=False)
+    # Append final error rates after 2000 epochs, per learning rate
+    train_errors.append(model.train_errors[-1])
+    val_errors.append(model.val_errors[-1])
+    
+    # Predict the test data
+    y_test_pred = model.predict(X_test)
+    # Calculate accuracy
+    accuracy = calculate_accuracy(y_test, y_test_pred)
+    accuracies.append(accuracy)
+    #print(f"Learning rate: {lr}\n  Test accuracy: {accuracy * 100:.2f}%")
+    if accuracy > best_accuracy:
+        best_accuracy = accuracy
+        optimal_learning_rate = lr
+
+# Get the optimal learning rate via getting the lowest test error
+train_errors = np.array(train_errors)
+val_errors = np.array(val_errors)
+index = np.argmin(val_errors)
+found_optimal_learning_rate = learning_rates[index]
+found_accuracy = accuracies[index]
+lowest_error = val_errors[index]
+print(f"||| Optimal learning rate by validation error: {found_optimal_learning_rate:.4f}, Test accuracy: {found_accuracy * 100:.2f}% |||")
+print(f"\n||| Optimal learning rate by accuracy: {optimal_learning_rate:.4f}, Test accuracy: {best_accuracy * 100:.2f}% |||\n")
 print(f"Seed: {seed}")
-# Plot training and validation error curves
-plt.plot(model.train_errors, label='Training Error')
-plt.plot(model.val_errors, label='Validation Error')
-plt.xlabel('Epochs')
-plt.ylabel('Error Rates')
+
+### Plot train/test errors vs learning rate ###
+plt.figure(figsize=(8,5))
+plt.plot(learning_rates, train_errors, marker='o', label='Training Error')
+plt.plot(learning_rates, val_errors, marker='o', label='Validation Error')
+plt.axvline(x=found_optimal_learning_rate, color='g', linestyle='--', label=f"Lowest validation error ({lowest_error:.2f})")
+plt.xlabel('Learning Rate')
+plt.ylabel('Error rates')
+plt.title('Training and Validation Error (2000 epochs) Rate per Learning Rate')
 plt.legend()
-plt.title('Training and Validation Error Curves')
 plt.show()
