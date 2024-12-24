@@ -13,9 +13,7 @@ features = [
 # Used for reproducibility
 seed = np.random.randint(0, 999)
 # Optimal learning rate
-learning_rates = np.linspace(0.001, 5, 50)
-optimal_learning_rate = None
-best_accuracy = 0.00
+learning_rate = 0.2357
 # Optimal number of epochs
 epochs = 2500
 # Number of neurons in the hidden layer
@@ -39,11 +37,6 @@ species_map = {"Adelie": 0, "Chinstrap": 1, "Gentoo": 2}
 y = penguins["species"].map(species_map).values
 # One-hot encoding
 y_one_hot = np.eye(3)[y]
-
-# Split data into optimal training (80%) and test (20%) sets
-X_train, X_test, y_train, y_test = train_test_split(X, y_one_hot, test_size=0.2, random_state=seed)
-input_size = X_train.shape[1]
-output_size = y_train.shape[1]
 
 # Define the sigmoid activation function and its derivative
 def sigmoid(x):
@@ -128,46 +121,52 @@ def calculate_accuracy(y_true, y_pred):
     correct = np.sum(np.argmax(y_true, axis=1) == y_pred)
     return correct / y_true.shape[0]
 
-train_errors = []
-val_errors = []
+# Metrics
+splits = [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]
 accuracies = []
-### Iterate 2000 times over each learning rate to find the optimal one ###
-for lr in learning_rates:
-    # Create and train a model for each learning rate
-    model = MLP(input_size, hidden_size, output_size, lr)
+# Iterate, at 2000 epochs and LR of 0.1030, over each train/test split ratio to find the optimal one
+for test_ratio in splits:
+    # Split data into training and testing sets
+    X_train, X_test, y_train, y_test = train_test_split(
+        X,
+        y_one_hot,
+        test_size=test_ratio,
+        random_state=seed
+    )
+    input_size = X_train.shape[1]  # 4 features per sample
+    output_size = y_train.shape[1]  # 3 classes
+    # Create and train a model for each split ratio
+    model = MLP(input_size, hidden_size, output_size, learning_rate)
     model.train_with_cross_validation(X_train, y_train, kfolds, epochs, log=False)
-    # Append final error rates after 2000 epochs, per learning rate
-    train_errors.append(model.train_errors[-1])
-    val_errors.append(model.val_errors[-1])
-    
-    # Predict the test data
+    # Get predictions at split ratio, after 2000 epochs           
     y_test_pred = model.predict(X_test)
     # Calculate accuracy
     accuracy = calculate_accuracy(y_test, y_test_pred)
     accuracies.append(accuracy)
-    #print(f"Learning rate: {lr}\n  Test accuracy: {accuracy * 100:.2f}%")
-    if accuracy > best_accuracy:
-        best_accuracy = accuracy
-        optimal_learning_rate = lr
+    # Output metrics for data table in report
+    print(f"||| Test/Train Ratio: {int(test_ratio * 10)}:{int(10 - test_ratio * 10)} | Accuracy: {accuracy * 100:.2f}% |||")
 
-# Get the optimal learning rate via getting the lowest test error
-train_errors = np.array(train_errors)
-val_errors = np.array(val_errors)
-index = np.argmin(val_errors)
-found_optimal_learning_rate = learning_rates[index]
-found_accuracy = accuracies[index]
-lowest_error = val_errors[index]
-print(f"||| Optimal learning rate by validation error: {found_optimal_learning_rate:.4f}, Test accuracy: {found_accuracy * 100:.2f}% |||")
-print(f"\n||| Optimal learning rate by accuracy: {optimal_learning_rate:.4f}, Test accuracy: {best_accuracy * 100:.2f}% |||\n")
 print(f"Seed: {seed}")
 
+ticks = [int(ratio * 100) for ratio in splits]
 ### Plot train/test errors vs learning rate ###
-plt.figure(figsize=(8,5))
-plt.plot(learning_rates, train_errors, marker='o', label='Training Error')
-plt.plot(learning_rates, val_errors, marker='o', label='Validation Error')
-plt.axvline(x=found_optimal_learning_rate, color='g', linestyle='--', label=f"Lowest validation error ({lowest_error:.2f})")
-plt.xlabel('Learning Rate')
-plt.ylabel('Error rates')
-plt.title('Training and Validation Error (2000 epochs) Rate per Learning Rate')
-plt.legend()
+plt.figure(figsize=(10,6))
+plt.bar(
+    ticks,
+    [int(accuracy * 100) for accuracy in accuracies],
+    color = 'forestgreen',
+    edgecolor = 'black',
+    width = 6
+)
+plt.plot(
+    ticks,
+    [int(accuracy * 100) for accuracy in accuracies],
+    color='black',
+    linestyle='--',
+    label="Accuracy Trend Line"
+)
+plt.xlabel('Test Ratio (%)')
+plt.xticks(ticks)
+plt.ylabel('Accuracy (%)')
+plt.title('Accuracy per Test/Train Ratio')
 plt.show()
